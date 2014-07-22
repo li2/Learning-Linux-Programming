@@ -1,20 +1,23 @@
 #! /bin/bash
 
-menu_choice=""
+menu_choicea=""
 current_cd=""
 readonly TITLE_FILE="title.cdb"
 readonly TRACKS_FILE="tracks.cdb"
+# 以进程编号命名临时文件
 temp_file=/tmp/cdb.$$
 trap 'rm -f $temp_file' EXIT
 
 
-set_menu_choice() {
+set_menum_choice() {
     clear
     echo "Options :-"
     echo
     echo "    a) Add new CD"
     echo "    f) Find CD"
     echo "    c) Count the CDs and tracks in the catalog"
+    # cdcatnum记录当前增加或查找的CD目录编号，add/find/remove会更新该值
+    # 不为空时，需要扩展菜单选项
     if [ "$cdcatnum" != "" ]; then
 	echo "        l) List tracks on $cdtitle"
 	echo "        r) Remove $cdtitle"
@@ -33,6 +36,12 @@ get_return(){
     return 0
 }
 
+# get_confirm 函数用于提示用户确认操作，会被多次调用，所以封装为函数
+#   1)  if get_confirm ; then
+#   2)  get_confirm && {}
+# if exit code is 0 (means true), runs the then branch;
+# if exit code is non-0 (means false), the then branch will be skipped.
+# http://stackoverflow.com/questions/2699237/bourne-if-statement-testing-exit-status
 get_confirm(){
     echo -e "Are you sure? \c"
     while true
@@ -54,6 +63,7 @@ get_confirm(){
     done
 }
 
+# * 为当前进程的所有命令行参数。加了双引号"$*", 相当于字符串。
 insert_title(){
     echo $* >> $TITLE_FILE
     return
@@ -64,6 +74,8 @@ insert_track(){
     return
 }
 
+# ${variable%%pattern} 模式匹配运算：
+# 如果pattern匹配于variable的结尾处，删除匹配的最长部分，并返回剩余部分。
 add_records(){
     # Prompt for the initial information
     
@@ -91,6 +103,7 @@ add_records(){
     # If confirmed then append it to the titles file
 
     if get_confirm ; then
+        # 以逗号作为字段分隔符，所以不要有空格
 	insert_title $cdcatnum,$cdtitle,$cdtype,$cdac
 	add_record_tracks
     else
@@ -103,35 +116,38 @@ add_records(){
 add_record_tracks(){
     echo "Enter track information for this CD"
     echo "When no more tracks enter q"
-    cdtrack=1
-    cdttitle=""
-    while [ "$cdttitle" != "q" ]
+    cdtracknum=1
+    cdtracktitle=""
+    while [ "$cdtracktitle" != "q" ]
     do 
-	echo -e "Track $cdtrack, track title? \c"
+	echo -e "Track $cdtracknum, input track title: \c"
 	read tmp
-	cdttitle=${tmp%%,*}
-	if [  ]; then
+	cdtracktitle=${tmp%%,*}
+        # 输入的名称不能包含字段分隔符逗号；
+	if [ "$tmp" != "$cdtracktitle" ]; then
 	    echo "Sorry, no commands allowed"
 	    continue
 	fi
-	if [ -n "$cdttitle" ]; then
-	    if [ "$cdttitle" != "q" ]; then
-		insert_track $cdcatnum,$cdtrack,$cdttitle
+        # 如果输入的名称不为空，且不是表示退出的q，那么写入到文件；
+	if [ -n "$cdtracktitle" ]; then
+	    if [ "$cdtracktitle" != "q" ]; then
+		insert_track $cdcatnum,$cdtracknum,$cdtracktitle
+                cdtracknum=$((cdtracknum+1))
 	    fi
-	else
-	    cdtrack=$((cdtrack-1))
 	fi
-	cdtrack=$((cdtrack+1))	
     done
 }
 
 find_cd(){
+    # 先检查命令行参数$1，当查找到对应的CD后，是否询问用户，以列出CD曲目；
     if [ "$1" = "n" ] ; then
 	asklist=n
     else
 	asklist=y
     fi 
 
+    # CD titles file包含4个字段，可以查询任意字段；
+    # 首先检查用户输入的字串是否为空；
     cdcatnum=""
     echo -e "Enter a string to search for in the CD titles \c"
     read searchstr
@@ -139,11 +155,14 @@ find_cd(){
 	return 0
     fi 
 
+    # 然后调用grep查找匹配的行，并重定向到临时文件；
     grep "$searchstr" $TITLE_FILE > $temp_file
-    
+
+    # 统计匹配的行数；
     set $(wc -l $temp_file)
     linesfound=$1
 
+    # 如过匹配的行数>1，
     case "$linesfound" in 
     0)      echo "Sorry, nothing found"
 	    get_return
@@ -158,6 +177,7 @@ find_cd(){
 	    ;;
     esac
 
+    # 读取匹配的第一行，以获取CD信息；
     IFS=","
     read cdcatnum cdtitle cdtype cdac < $temp_file
     IFS=""
@@ -176,6 +196,7 @@ find_cd(){
     echo
     get_return
 
+    # 列出CD的曲目信息；
     if [ "$asklist" = "y" ] ; then
 	echo -e "View tracks for this CD? \c"
 	read x
@@ -188,6 +209,9 @@ find_cd(){
     return 1
 }
 
+# remove，list，update是要操作一张CD，
+# 所以执行前，需要先检查是否选择了CD；
+# 先删除之前存储的CD曲目信息，然后重新输入；
 update_cd(){
     if [ -z "$cdcatnum" ] ; then
 	echo "You must select a CD first"
