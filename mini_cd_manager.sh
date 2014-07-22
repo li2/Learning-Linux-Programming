@@ -91,7 +91,7 @@ add_records(){
     # If confirmed then append it to the titles file
 
     if get_confirm ; then
-	insert_title $cdcatnum, $cdtitle, $cdtype, $cdac
+	insert_title $cdcatnum,$cdtitle,$cdtype,$cdac
 	add_record_tracks
     else
 	remove_records
@@ -116,7 +116,7 @@ add_record_tracks(){
 	fi
 	if [ -n "$cdttitle" ]; then
 	    if [ "$cdttitle" != "q" ]; then
-		insert_track $cdcatnum, $cdtrack, $cdttitle
+		insert_track $cdcatnum,$cdtrack,$cdttitle
 	    fi
 	else
 	    cdtrack=$((cdtrack-1))
@@ -169,10 +169,10 @@ find_cd(){
     fi 
 
     echo
-    echo Catalog number: $cdcatnum
-    echo Title: $cdtitle
-    echo Type: $cdtype
-    echo Artist/Composer: $cdac
+    echo " Catalog number  :  $cdcatnum"
+    echo "          Title  :  $cdtitle"
+    echo "           Type  :  $cdtype"
+    echo "Artist/Composer  :  $cdac"
     echo
     get_return
 
@@ -211,11 +211,11 @@ update_cd(){
 }
 
 count_cds(){
-    set $£¨wc -l $TITLE_FILE£©
+    set $(wc -l $TITLE_FILE)
     num_titles=$1
-    set $£¨wc -l $TRACKS_FILE£©
+    set $(wc -l $TRACKS_FILE)
     num_tracks=$1
-    echo "found $num_titles CDs, with a total of $num_tracks"
+    echo "found $num_titles CDs, with a total of $num_tracks tracks"
     get_return
     return
 }
@@ -235,7 +235,6 @@ remove_records(){
 	    mv $temp_file $TRACKS_FILE
 	    cdcatnum=""
 	    echo Entry removed
-	    add_record_tracks
 	}
 	get_return
     fi
