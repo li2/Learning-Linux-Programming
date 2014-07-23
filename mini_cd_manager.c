@@ -1,3 +1,53 @@
+/*******************************************************************************
+一个管理CD唱片的程序。
+使用菜单完成“增、删、改、查”四项功能，使用文本存储数据。
+
+TITLE_FILE 存储标题信息 ： 目录编号,标题,曲目类型,艺术家
+TRACKS_FILE 存储曲目信息： 目录编号,曲目编号,曲名
+目录编号因为是惟一的，所以用来关联2个文件，标题文件的一个数据项一般会对应曲目文件的多行数据。
+
+“增”操作：仅指向标题文件中增加一条CD记录。而CD的曲目信息，通过“改”操作录入。
+    fopen(), wgetnstr(), fprintf(), fclose().
+
+“查”操作：引导用户输入需要查找的标题，逐行读取标题文件，进行匹配。
+    wgetnstr()（curses库函数）, fopen(), fgets(), strstr() or strcmp(), fclose().
+    不会把所有CD以列表形式呈现，所以针对某张CD操作时，必须先“查”，目前版本仅支持“标题”查找。
+    需要变量 current_cd 存储“当前CD标题”，“增、查”2个操作会更新该变量，“删”重置该变量为'\0'。
+
+“删”操作：删除当前CD记录，及其所有曲目。
+    曲目文件每个条目，也就是每行的开头是目录编号；
+    查找曲目文件中与“当前目录编号”不匹配的行，并写入临时文件，
+    而匹配的行被丢弃，以达到删除的目的。
+    fopen(), fgets(), strncmp(), fputs(), fclose().
+
+“改”操作：不支持针对某个曲目编号的修改，需要先删除某个目录编号的所有曲目，然后重新录入。
+    与“删api、增api”相同。
+
+********************************************************************************
+
+使用到的API
+
+FILE *fopen(const char *filename, const char *mode); 打开指定的文件，并关联到文件流。
+
+FILE *fclose(FILE *stream); 关闭指定的文件流，冲洗所有数据。
+
+int fprintf(FILE *stream, const char *format, ...); 
+格式化不同类项的参数，并写入到指定的文件流（sprintf写到指定的字符串，printf写到标准输出）。
+
+char *fgets(char *s, int n, FILE *stream);
+从文件流读取一个字符串，遇到以下情况停止：读到换行符；已经读入n-1个字符（因为需要加上表示结尾的空字符'\0'）；到达文件尾。
+
+int fputs(const char *str, FILE *fp); 把一个以空字符终止的字符串写入到指定流，尾端的终止符不写。
+
+curses库函数
+该例程“使用curses函数函数库管理基于文本的屏幕”，即使用了非常多的curses库函数，管理屏幕输入/出、键盘输入、窗口/子窗口等。使用细节暂且不深究。
+学习该例程的目的是，厘清使用C语言完成该程序的逻辑流程，及，与Shell的区别。
+
+int getch(void); 获取键盘输入，
+    在cbreak()模式下，字符一旦键入，立刻传递给程序，不需要回车，所以不需要处理回车带来的'\n';
+    在预处理模式（cooked）下，由于所有处理基于行，没有按回车时程序被阻塞。
+*/
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -13,8 +63,8 @@
 
 static char current_cd[MAX_STRING] = "\0";
 static char current_cat[MAX_STRING];
-const char *title_file = "title.cdb";
-const char *tracks_file = "tracks.cdb";
+const char *TITLE_FILE = "title.cdb";
+const char *TRACKS_FILE = "tracks.cdb";
 const char *temp_file = "cdb.tmp";
 
 void clear_all_screen(void);
@@ -59,6 +109,7 @@ int main()
     int choice;
     initscr();
     do {
+        /* 当current_cd 不为'\0'时，需要重绘为扩展菜单 */
         choice = getchoice("Options:", current_cd[0] ? extended_menu : main_menu);
         switch (choice) {
         case 'q':
@@ -260,7 +311,7 @@ int get_confirm()
 
 void insert_title(char *cdtitle)
 {
-    FILE *fp = fopen(title_file, "a");
+    FILE *fp = fopen(TITLE_FILE, "a");
     if (!fp) {
         mvprintw(ERROR_LINE, 0, "cannot open CD titles database");
     } else {
@@ -297,7 +348,7 @@ void update_cd()
 
     mvprintw(MESSAGE_LINE, 0, "Enter a blank line to finish");
 
-    tracks_fp = fopen(tracks_file, "a");
+    tracks_fp = fopen(TRACKS_FILE, "a");
 
     /* Just to show how, enter the information in a scrolling, boxed,
        window. The trick is to set-up a sub-window, draw a box around the
@@ -366,7 +417,7 @@ void remove_cd()
     cat_length = strlen(current_cat);
 
     /* Copy the titles file to a tempory, ignoring this CD */
-    titles_fp = fopen(title_file, "r");
+    titles_fp = fopen(TITLE_FILE, "r");
     temp_fp = fopen(temp_file, "w");
 
     while (fgets(entry, MAX_ENTRY, titles_fp)) {
@@ -379,8 +430,8 @@ void remove_cd()
     fclose(temp_fp);
 
     /* Delete the titles file, and rename the temporary file */
-    unlink(title_file);
-    rename(temp_file, title_file);
+    unlink(TITLE_FILE);
+    rename(temp_file, TITLE_FILE);
 
     /* Now do the same for the tracks file */
     remove_tracks();
@@ -401,7 +452,7 @@ void remove_tracks()
     //todo whey current_cd remove all?
     cat_length = strlen(current_cat);
 
-    tracks_fp = fopen(tracks_file, "r");
+    tracks_fp = fopen(TRACKS_FILE, "r");
     if (tracks_fp == (FILE *)NULL) {
         return;
     }
@@ -417,8 +468,8 @@ void remove_tracks()
     fclose(temp_fp);
 
     /* Delete the tracks file, and rename the temporary file */
-    unlink(tracks_file);
-    rename(temp_file, tracks_file);
+    unlink(TRACKS_FILE);
+    rename(temp_file, TRACKS_FILE);
 }
 
 void count_cds()
@@ -428,7 +479,7 @@ void count_cds()
     int titles = 0;
     int tracks = 0;
 
-    titles_fp = fopen(title_file, "r");
+    titles_fp = fopen(TITLE_FILE, "r");
     if (titles_fp) {
         while (fgets(entry, MAX_ENTRY, titles_fp)){
             titles++;
@@ -436,7 +487,7 @@ void count_cds()
         fclose(titles_fp);
     }
 
-    tracks_fp = fopen(tracks_file, "r");
+    tracks_fp = fopen(TRACKS_FILE, "r");
     if (tracks_fp) {
         while (fgets(entry, MAX_ENTRY, tracks_fp)){
             tracks++;
@@ -460,7 +511,7 @@ void find_cd()
     mvprintw(Q_LINE, 0, "Enter a string to search for in CD titles: ");
     get_string(match);
 
-    titles_fp = fopen(title_file, "r");
+    titles_fp = fopen(TITLE_FILE, "r");
     if (titles_fp) {
         while (fgets(entry, MAX_ENTRY, titles_fp)) {
             /* Skip past catalog number */
@@ -516,7 +567,7 @@ void list_tracks()
     cat_length = strlen(current_cat);
 
     /* First count the number of tracks for the current CD */
-    tracks_fp = fopen(tracks_file, "r");
+    tracks_fp = fopen(TRACKS_FILE, "r");
     if (!tracks_fp) {
         return;
     }
@@ -533,7 +584,7 @@ void list_tracks()
     if (!track_pad_ptr)
 	return;
 
-    tracks_fp = fopen(tracks_file, "r");
+    tracks_fp = fopen(TRACKS_FILE, "r");
     if (!tracks_fp)
 	return;
 
