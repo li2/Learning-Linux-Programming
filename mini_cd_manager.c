@@ -14,8 +14,8 @@
 static char current_cd[MAX_STRING] = "\0";
 static char current_cat[MAX_STRING];
 const char *title_file = "title.cdb";
-const char *tracks_file="tracks.cdb";
-const char *temp_file="cdb.tmp";
+const char *tracks_file = "tracks.cdb";
+const char *temp_file = "cdb.tmp";
 
 void clear_all_screen(void);
 void get_return(void);
@@ -32,24 +32,25 @@ void remove_tracks(void);
 void remove_cd(void);
 void update_cd(void);
 
+//todo why aadd? Repeat the first letter?
 char *main_menu[] = 
 {
-    "add new CD",
-    "find CD",
-    "count CDs and tracks in the catalog",
-    "quit",
+    "aadd new CD",
+    "ffind CD",
+    "ccount CDs and tracks in the catalog",
+    "qquit",
     0,
 };
 
 char *extended_menu[] = 
 {
-    "add new CD",
-    "find CD",
-    "count CDs and tracks in the catalog",
-    "    list tracks on current CD",
-    "    remove current CD",
-    "    update track information",
-    "quit",
+    "aadd new CD",
+    "ffind CD",
+    "ccount CDs and tracks in the catalog",
+    "l    list tracks on current CD",
+    "r    remove current CD",
+    "u    update track information",
+    "qquit",
     0,
 };
 
@@ -58,13 +59,15 @@ int main()
     int choice;
     initscr();
     do {
-        choice = getchoice("Options:",
-                           current_cd[0] ? extended_menu : main_menu);
+        choice = getchoice("Options:", current_cd[0] ? extended_menu : main_menu);
         switch (choice) {
         case 'q':
             break;
         case 'a':
             add_record();
+            break;
+        case 'c':
+            count_cds();
             break;
         case 'f':
             find_cd();
@@ -156,14 +159,13 @@ void draw_menu(char *options[], int current_highlight,
         txt_ptr++;
         mvprintw(start_row + current_row, start_col, "%s", txt_ptr);
         if (current_row == current_highlight) {
-            sttroff(A_STANDOUT);
+            attroff(A_STANDOUT);
         }
         current_row++;
         option_ptr++;
     }
 
-    mvprintw(start_row + current_row + 3, start_col,
-             "Move highlight then press Return ");
+    mvprintw(start_row + current_row + 3, start_col, "Move highlight then press Return ");
     refresh();
 }
 
@@ -172,7 +174,7 @@ void clear_all_screen()
     clear();
     mvprintw(2, 20, "%s", "CD Database Application");
     if (current_cd[0]) {
-        mvprintw(ERROR_LINE, 0, "Current CD: %s: %s\n",
+        mvprintw(ERROR_LINE, 0, "Current CD: %s, %s\n",
                  current_cat, current_cd);
     }
     refresh();
@@ -201,14 +203,16 @@ void add_record()
     get_string(cd_title);
     screenrow++;
 
-    mvprintw(screenrow, screencol, "        CD Type: ");
+    mvprintw(screenrow, screencol, "       CD Type: ");
     get_string(cd_type);
     screenrow++;
 
-    mvprintw(screenrow, screencol, "         Artist: ");
+    mvprintw(screenrow, screencol, "        Artist: ");
     get_string(cd_artist);
     screenrow++;
 
+    mvprintw(PROMPT_LINE-2, 5, "%s", "About to add this new entry");
+    sprintf(cd_entry, "%s,%s,%s,%s", catalog_number, cd_title, cd_type, cd_artist);
     mvprintw(PROMPT_LINE, 5, "%s", cd_entry);
     refresh();
     move(PROMPT_LINE, 0);
@@ -295,6 +299,10 @@ void update_cd()
 
     tracks_fp = fopen(tracks_file, "a");
 
+    /* Just to show how, enter the information in a scrolling, boxed,
+       window. The trick is to set-up a sub-window, draw a box around the
+       edge, then add a new, scrolling, sub-window just inside the boxed
+       sub-window. */
     box_window_ptr = subwin(stdscr, BOXED_LINES + 2, BOXED_ROWS + 2,
                             BOX_LINE_POS - 1, BOX_ROW_POS - 1);
 
@@ -312,7 +320,8 @@ void update_cd()
     touchwin(stdscr);
 
     do {
-        mvprintw(sub_window_ptr, screen_line++, BOX_ROW_POS + 2, "Track %d: ", track);
+        //todo mvprintw
+        mvwprintw(sub_window_ptr, screen_line++, BOX_ROW_POS + 2, "Track %d: ", track);
         clrtoeol();
         refresh();
         wgetnstr(sub_window_ptr, track_name, MAX_STRING);
@@ -352,15 +361,16 @@ void remove_cd()
     if (!get_confirm()) {
         return;
     }
-
-    cat_length = strlen(current_cd);
+    
+    //todo whey current_cd remove all?
+    cat_length = strlen(current_cat);
 
     /* Copy the titles file to a tempory, ignoring this CD */
     titles_fp = fopen(title_file, "r");
     temp_fp = fopen(temp_file, "w");
 
     while (fgets(entry, MAX_ENTRY, titles_fp)) {
-        /* Compare catalog nmuber and copy entry if no match */
+        /* Compare catalog number and copy entry if no match */
         if (strncmp(current_cat, entry, cat_length) != 0) {
             fputs(entry, temp_fp);
         }
@@ -381,15 +391,15 @@ void remove_cd()
 
 void remove_tracks()
 {
-    FILE *tracks_file, *temp_file;
+    FILE *tracks_fp, *temp_fp;
     char entry[MAX_ENTRY];
     int cat_length;
 
     if (current_cd[0] == '\0') {
         return;
     }
-
-    cat_length = strlen(current_cd);
+    //todo whey current_cd remove all?
+    cat_length = strlen(current_cat);
 
     tracks_fp = fopen(tracks_file, "r");
     if (tracks_fp == (FILE *)NULL) {
@@ -404,7 +414,7 @@ void remove_tracks()
         }
     }
     fclose(tracks_fp);
-    fclos(temp_fp);
+    fclose(temp_fp);
 
     /* Delete the tracks file, and rename the temporary file */
     unlink(tracks_file);
@@ -455,16 +465,16 @@ void find_cd()
         while (fgets(entry, MAX_ENTRY, titles_fp)) {
             /* Skip past catalog number */
             catalog = entry;
-            if (found == strstr(catalog, ",")) {
+            if (found = strstr(catalog, ",")) {
                 *found = '\0';
                 title = found + 1;
 
                 /* Zap the next comma in the entry to reduce it to title only */
-                if (found == strstr(title, ",")) {
+                if (found = strstr(title, ",")) {
                     *found = '\0';
                     
                     /* Now see if the match substring is present */
-                    if (found == strstr(title, match)) {
+                    if (found = strstr(title, match)) {
                         count++;
                         strcpy(current_cd, title);
                         strcpy(current_cat, catalog);
@@ -519,17 +529,21 @@ void list_tracks()
 
     /* Make a new pad, ensure that even if there is only a single
        track the PAD is large enough so the later prefresh() is always valid  */
-    track_pad_ptr = newpad(traks + 1 + BOXED_LINES, BOXED_ROWS + 1);
-    if (!tracks_fp) {
-        return;
-    }
+    track_pad_ptr = newpad(tracks + 1 + BOXED_LINES, BOXED_ROWS + 1);
+    if (!track_pad_ptr)
+	return;
+
+    tracks_fp = fopen(tracks_file, "r");
+    if (!tracks_fp)
+	return;
+
     mvprintw(4, 0, "CD Track Listing\n");
 
     /* write the track information into the pad */
     while (fgets(entry, MAX_ENTRY, tracks_fp)) {
         /* Compare catalog number and output rest of entry */
         if (strncmp(current_cat, entry, cat_length) == 0) {
-            mvprintw(track_pad_ptr, lines_op++, 0, "%s", entry + cat_length + 1);
+            mvwprintw(track_pad_ptr, lines_op++, 0, "%s", entry + cat_length + 1);
         }
     }
     fclose(tracks_fp);
