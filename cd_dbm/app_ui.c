@@ -1,48 +1,3 @@
-/* The catalog table */
-#define CAT_CAT_LEN     30
-#define CAT_TITLE_LEN   70
-#define CAT_TYPE_LEN    30
-#define CAT_ARTIST_LEN  70
-
-typedef struct {
-    char catalog[CAT_CAT_LEN + 1];
-    char title[CAT_TITLE_LEN + 1];
-    char type[CAT_TYPE_LEN + 1];
-    char artist[CAT_ARTIST_LEN + 1];
-} cdc_entry;
-
-/* The tracks table, one entry per track */
-#define TRACK_CAT_LEN      CAT_CAT_LEN
-#define TRACK_TTEXT_LEN    70
-
-typedef struct {
-    char catalog[TRACK_CAT_LEN + 1];
-    int track_no;
-    char track_txt[TRACK_TTEXT_LEN + 1];
-} cdt_entry;
-
-/* Initialization and termination functions */
-int database_initialize(const int new_database);
-void database_close(void);
-
-/* two for simple data retrieval */
-cdc_entry get_cdc_entry(const char *cd_catalog_ptr);
-cdt_entry get_cdt_entry(const char *cd_catalog_ptr, const int track_no);
-
-/* two for data addition */
-int add_cdc_entry(const cdc_entry entry_to_add);
-int add_cdt_entry(const cdt_entry entry_to_add);
-
-/* two for data deletion */
-int del_cdc_entry(const char *cd_catalog_ptr);
-int del_cdt_entry(const char *cd_catalog_ptr, const int track_no);
-
-/* one search function */
-cdc_entry searh_cdc_entry(const char *cd_catalog_ptr, int *first_call_ptr);
-
-
-//////////////////////////////////////////////
-
 #define _XOPEN_SOURCE
 
 #include <stdlib.h>
@@ -54,6 +9,8 @@ cdc_entry searh_cdc_entry(const char *cd_catalog_ptr, int *first_call_ptr);
 
 #define TMP_STRING_LEN 125 /* this number must be larger than the biggest
                               single string in any database structure */
+
+/* Menu options */
 typedef enum {
     mo_invalid,
     mo_add_cat,
@@ -66,6 +23,7 @@ typedef enum {
     mo_exit
 } menu_options;
 
+/* local prototypes */
 static int command_mode(int argc, char *argv[]);
 static void announce(void);
 static menu_options show_menu(const cdc_entry *current_cdc);
@@ -78,14 +36,14 @@ static cdc_entry find_cat(void);
 static void list_tracks(const cdc_entry *entry_to_use);
 static void count_all_entries(void);
 static void display_cdc(const cdc_entry *cdc_to_show);
-static void display_cdt(const cdc_entry *cdt_to_show);
+static void display_cdt(const cdt_entry *cdt_to_show);
 static void strip_return(char *string_to_strip);
 
 /* This starts by ensuring that the current_cdc_entry, which you use to 
    keep track of the currently selected CD catalog entry, is initialized. 
    Also parse the command line, announce what program is being run.
    And initialize the database. */
-void main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
     menu_options current_option;
     cdc_entry current_cdc_entry;
@@ -175,9 +133,9 @@ static menu_options show_menu(const cdc_entry *cdc_selected)
             printf("1 - add new CD\n");
             printf("2 - search for a CD\n");
             printf("3 - count the CDs and tracks in the database\n");
-            printf("4 - re-enter tracks for current CD\n");
-            printf("5 - delete this CD, and all its tracks\n");
-            printf("6 - list tracks for this CD\n");
+            printf("4 -     re-enter tracks for current CD\n");
+            printf("5 -     delete this CD, and all its tracks\n");
+            printf("6 -     list tracks for this CD\n");
             printf("q - quit\n");
             printf("\nOption: ");
             fgets(tmp_str, TMP_STRING_LEN, stdin);
@@ -217,7 +175,7 @@ static int get_confirm(const char *question)
     char tmp_str[TMP_STRING_LEN + 1];
     printf("%s", question);
     fgets(tmp_str, TMP_STRING_LEN, stdin);
-    if (tmp_str[0] == 'Y' || tmp_str[1] == 'y') {
+    if (tmp_str[0] == 'Y' || tmp_str[0] == 'y') {
         return(1);
     }
     return(0);
@@ -282,7 +240,7 @@ static void enter_new_track_entries(const cdc_entry *entry_to_add_to)
     while (1) {
         /* First, you must check whether a track already exists with the 
            current track number. Depending on what you find, you change prompt. */
-        memset(&new_entry, '\0', sizeof(new_entry));
+        memset(&new_track, '\0', sizeof(new_track));
         existing_track = get_cdt_entry(entry_to_add_to->catalog, track_no);
         if (existing_track.catalog[0]) {
             printf("\tTrack %d: %s\n", track_no, existing_track.track_txt);
@@ -378,7 +336,7 @@ static cdc_entry find_cat(void)
 
     do {
         string_ok = 1;
-        printf("Enter sring to search for in catalog entry: ");
+        printf("Enter string to search for in catalog entry: ");
         fgets(tmp_str, TMP_STRING_LEN, stdin);
         strip_return(tmp_str);
         if (strlen(tmp_str) > CAT_CAT_LEN) {
@@ -389,7 +347,7 @@ static cdc_entry find_cat(void)
     } while (!string_ok);
 
     while (!entry_selected) {
-        item_found = searh_cdc_entry(tmp_str, &first_call);
+        item_found = search_cdc_entry(tmp_str, &first_call);
         if (item_found.catalog[0] != '\0') {
             any_entry_found = 1;
             printf("\n");
@@ -439,7 +397,7 @@ static void count_all_entries(void)
     char *search_string = "";
 
     do {
-        cdc_found = searh_cdc_entry(search_string, &first_time);
+        cdc_found = search_cdc_entry(search_string, &first_time);
         if (cdc_found.catalog[0]) {
             cd_entries_found++;
             track_no = 1;
@@ -462,15 +420,15 @@ static void count_all_entries(void)
 static void display_cdc(const cdc_entry *cdc_to_show)
 {
     printf("Catalog: %s\n", cdc_to_show->catalog);
-    printf("\ttitle: %s\n", cdc_to_show->title);
-    printf("\ttype: %s\n", cdc_to_show->type);
+    printf("\t title: %s\n", cdc_to_show->title);
+    printf("\t  type: %s\n", cdc_to_show->type);
     printf("\tartist: %s\n", cdc_to_show->artist);
 }
 
 /* and a single track entry. */
 static void display_cdt(const cdt_entry *cdt_to_show)
 {
-    printf("%d: %s\n", cdt_to_show->track_no, cdt_to_show->track_txt);
+    printf("\t%d: %s\n", cdt_to_show->track_no, cdt_to_show->track_txt);
 }
 
 /* A utility for removing a trailing linefeed character form a string.

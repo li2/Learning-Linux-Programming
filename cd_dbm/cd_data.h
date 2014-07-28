@@ -38,4 +38,4 @@ int del_cdc_entry(const char *cd_catalog_ptr);
 int del_cdt_entry(const char *cd_catalog_ptr, const int track_no);
 
 /* one search function */
-cdc_entry searh_cdc_entry(const char *cd_catalog_ptr, int *first_call_ptr);
+cdc_entry search_cdc_entry(const char *cd_catalog_ptr, int *first_call_ptr);

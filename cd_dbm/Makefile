@@ -1,17 +1,21 @@
 all:	application
 
 INCLUDE=/usr/include/gdbm
-LIBS=gdbm
+#LIBS= -lgdbm
+LIBS= -lgdbm_compat -lgdbm
 CFLAGS=
 
 app_ui.o: app_ui.c cd_data.h
 	gcc $(CFLAGS) -c app_ui.c
 
-access.o: access.c cd_data.h
-	gcc $(CFLAGS) -I$(INCLUDE) -c access.c
+cd_access.o: cd_access.c cd_data.h
+	gcc $(CFLAGS) -I$(INCLUDE) -c cd_access.c
 
-application: app_ui.o access.o
-	gcc $(CFLAGS) -o application app_ui.o access.o -l$(LIBS)
+application: app_ui.o cd_access.o
+	gcc $(CFLAGS) -o application app_ui.o cd_access.o $(LIBS)
 
 clean:
-rm -f *.dir *.pag
+	rm -f *.o
+
+nodbmfiles:
+	rm -f *.dir *.pag

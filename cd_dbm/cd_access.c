@@ -1,3 +1,7 @@
+/*
+   This file provides the functions for accessing the CD database.
+ */
+
 #define _XOPEN_SOURCE
 
 #include <unistd.h>
@@ -6,7 +10,8 @@
 #include <fcntl.h>
 #include <string.h>
 
-#include <ndbm.h>  /* may need to be changed to gdbm-ndbm.h on some distributions */
+//#include <ndbm.h>
+#include <gdbm-ndbm.h>  /* may need to be changed to gdbm-ndbm.h on some distributions */
 
 #include "cd_data.h"
 
@@ -140,7 +145,7 @@ cdt_entry get_cdt_entry(const char *cd_catalog_ptr, const int track_no)
     local_key_datum.dsize = sizeof(entry_to_find);
 
     memset(&local_data_datum, '\0', sizeof(local_data_datum));
-    local_data_datum = dbm_fetch(cdc_dbm_ptr, local_key_datum);
+    local_data_datum = dbm_fetch(cdt_dbm_ptr, local_key_datum);
     if (local_data_datum.dptr) {
         memcpy(&entry_to_return, (char *)local_data_datum.dptr, local_data_datum.dsize);
     }
@@ -162,8 +167,8 @@ int add_cdc_entry(const cdc_entry entry_to_add)
         return(0);
     }
 
-    memset(&key_to_find, '\0', sizeof(key_to_find));
-    strcpy(key_to_find, entry_to_add.catalog);
+    memset(&key_to_add, '\0', sizeof(key_to_add));
+    strcpy(key_to_add, entry_to_add.catalog);
 
     local_key_datum.dptr = (void *)key_to_add;
     local_key_datum.dsize = sizeof(key_to_add);
@@ -180,7 +185,7 @@ int add_cdc_entry(const cdc_entry entry_to_add)
     return(0);
 }
 
-int add_cdt_entry()
+int add_cdt_entry(const cdt_entry entry_to_add)
 {
     char key_to_add[CAT_CAT_LEN + 10];
     datum local_data_datum;
@@ -194,7 +199,7 @@ int add_cdt_entry()
         return(0);
     }
 
-    memset(&key_to_ad, '\0', sizeof(key_to_add));
+    memset(&key_to_add, '\0', sizeof(key_to_add));
     sprintf(key_to_add, "%s %d", entry_to_add.catalog, entry_to_add.track_no);
 
     local_key_datum.dptr = (void *)key_to_add;
@@ -243,7 +248,7 @@ int del_cdc_entry(const char *cd_catalog_ptr)
 /* Delete a track */
 int del_cdt_entry(const char *cd_catalog_ptr, const int track_no)
 {
-    char key_to_del[CAT_CAT_LEN + 1];
+    char key_to_del[CAT_CAT_LEN + 10];
     datum local_key_datum;
     int result;
 
@@ -309,7 +314,7 @@ cdc_entry search_cdc_entry(const char *cd_catalog_ptr, int *first_call_ptr)
     }
 
     do {
-        if (local_key_datum.ptr != NULL) {
+        if (local_key_datum.dptr != NULL) {
             /* an entry was found  */
             local_data_datum = dbm_fetch(cdc_dbm_ptr, local_key_datum);
             if (local_data_datum.dptr) {
