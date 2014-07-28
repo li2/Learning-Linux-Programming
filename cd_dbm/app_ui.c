@@ -30,7 +30,7 @@ static menu_options show_menu(const cdc_entry *current_cdc);
 static int get_confirm(const char *question);
 static int enter_new_cat_entry(cdc_entry *entry_to_update);//todo2 why no const?
 static void enter_new_track_entries(const cdc_entry *entry_to_add_to);
-static void del_cat_entry(const cdc_entry *entry_to_delete);
+static int del_cat_entry(const cdc_entry *entry_to_delete);
 static void del_track_entries(const cdc_entry *entry_to_delete);
 static cdc_entry find_cat(void);
 static void list_tracks(const cdc_entry *entry_to_use);
@@ -81,7 +81,9 @@ int main(int argc, char *argv[])
             enter_new_track_entries(&current_cdc_entry);
             break;
         case mo_del_cat:
-            del_cat_entry(&current_cdc_entry);
+            if (del_cat_entry(&current_cdc_entry)) {
+                memset(&current_cdc_entry, '\0', sizeof(current_cdc_entry));
+            }
             break;
         case mo_find_cat:
             current_cdc_entry = find_cat();
@@ -121,7 +123,7 @@ static menu_options show_menu(const cdc_entry *cdc_selected)
 {
     char tmp_str[TMP_STRING_LEN + 1];
     menu_options option_chosen = mo_invalid;
-
+    //todo 当前cd目录号显示出来 2014-07-28 15:00
     while (option_chosen == mo_invalid) {
         if (cdc_selected->catalog[0]) {
             printf("\n\nCurrent entry: ");
@@ -133,9 +135,9 @@ static menu_options show_menu(const cdc_entry *cdc_selected)
             printf("1 - add new CD\n");
             printf("2 - search for a CD\n");
             printf("3 - count the CDs and tracks in the database\n");
-            printf("4 -     re-enter tracks for current CD\n");
-            printf("5 -     delete this CD, and all its tracks\n");
-            printf("6 -     list tracks for this CD\n");
+            printf("4 -     re-enter [ %s ]'s tracks\n", cdc_selected->catalog);
+            printf("5 -     delete [ %s ] and all its tracks\n", cdc_selected->catalog);
+            printf("6 -     list [ %s ]'s tracks\n", cdc_selected->catalog);
             printf("q - quit\n");
             printf("\nOption: ");
             fgets(tmp_str, TMP_STRING_LEN, stdin);
@@ -192,17 +194,17 @@ static int enter_new_cat_entry(cdc_entry *entry_to_update)
 
     memset(&new_entry, '\0', sizeof(new_entry));
 
-    printf("Enter catalog entry: ");
+    printf("Enter catalog entry : ");
     (void)fgets(tmp_str, TMP_STRING_LEN, stdin);
     strip_return(tmp_str);
     strncpy(new_entry.catalog, tmp_str, CAT_CAT_LEN - 1);
 
-    printf("Enter title: ");
+    printf("Enter title         : ");
     (void)fgets(tmp_str, TMP_STRING_LEN, stdin);
     strip_return(tmp_str);
     strncpy(new_entry.title, tmp_str, CAT_TITLE_LEN - 1);
 
-    printf("Enter type: ");
+    printf("Enter type          : ");
     (void)fgets(tmp_str, TMP_STRING_LEN, stdin);
     strip_return(tmp_str);
     strncpy(new_entry.type, tmp_str, CAT_TYPE_LEN - 1);
@@ -290,7 +292,7 @@ static void enter_new_track_entries(const cdc_entry *entry_to_add_to)
 
 /* Deletes a catalog entry. Never allow tracks for a nonexistent catalog entry
    to exist. */
-static void del_cat_entry(const cdc_entry *entry_to_delete)
+static int del_cat_entry(const cdc_entry *entry_to_delete)
 {
     int track_no = 1;
     int delete_ok;
@@ -304,8 +306,11 @@ static void del_cat_entry(const cdc_entry *entry_to_delete)
 
         if (!del_cdc_entry(entry_to_delete->catalog)) {
             fprintf(stderr, "Failed to delete entry\n");
+        } else  {
+            return(1);
         }
     }
+    return(0);
 }
 
 /* A utility for deleting all the tracks for a catalog */
