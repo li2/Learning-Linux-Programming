@@ -180,5 +180,150 @@ int add_cdc_entry(const cdc_entry entry_to_add)
     return(0);
 }
 
-//to 10.
 int add_cdt_entry()
+{
+    char key_to_add[CAT_CAT_LEN + 10];
+    datum local_data_datum;
+    datum local_key_datum;
+    int result;
+
+    if (!cdc_dbm_ptr || !cdt_dbm_ptr) {
+        return(0);
+    }
+    if (strlen(entry_to_add.catalog) >= CAT_CAT_LEN) {
+        return(0);
+    }
+
+    memset(&key_to_ad, '\0', sizeof(key_to_add));
+    sprintf(key_to_add, "%s %d", entry_to_add.catalog, entry_to_add.track_no);
+
+    local_key_datum.dptr = (void *)key_to_add;
+    local_key_datum.dsize = sizeof(key_to_add);
+    local_data_datum.dptr = (void *)&entry_to_add;
+    local_data_datum.dsize = sizeof(entry_to_add);
+
+    result = dbm_store(cdt_dbm_ptr, local_key_datum, local_data_datum, DBM_REPLACE); 
+    
+    /*dbm_store() uses 0 for success */
+    if (result == 0) {
+        return(1);
+    }
+    return(0);
+}
+
+/* Delete a new catalog entry */
+int del_cdc_entry(const char *cd_catalog_ptr)
+{
+    char key_to_del[CAT_CAT_LEN + 1];
+    datum local_key_datum;
+    int result;
+
+    if (!cdc_dbm_ptr || !cdt_dbm_ptr) {
+        return(0);
+    }
+    if (strlen(cd_catalog_ptr) >= CAT_CAT_LEN) {
+        return(0);
+    }
+
+    memset(&key_to_del, '\0', sizeof(key_to_del));
+    strcpy(key_to_del, cd_catalog_ptr);
+
+    local_key_datum.dptr = (void *)key_to_del;
+    local_key_datum.dsize = sizeof(key_to_del);
+
+    result = dbm_delete(cdc_dbm_ptr, local_key_datum); 
+    
+    /*dbm_store() uses 0 for success */
+    if (result == 0) {
+        return(1);
+    }
+    return(0);
+}
+
+/* Delete a track */
+int del_cdt_entry(const char *cd_catalog_ptr, const int track_no)
+{
+    char key_to_del[CAT_CAT_LEN + 1];
+    datum local_key_datum;
+    int result;
+
+    if (!cdc_dbm_ptr || !cdt_dbm_ptr) {
+        return(0);
+    }
+    if (strlen(cd_catalog_ptr) >= CAT_CAT_LEN) {
+        return(0);
+    }
+
+    memset(&key_to_del, '\0', sizeof(key_to_del));
+    sprintf(key_to_del,"%s %d", cd_catalog_ptr, track_no);
+
+    local_key_datum.dptr = (void *)key_to_del;
+    local_key_datum.dsize = sizeof(key_to_del);
+
+    result = dbm_delete(cdt_dbm_ptr, local_key_datum); 
+    
+    /*dbm_store() uses 0 for success */
+    if (result == 0) {
+        return(1);
+    }
+    return(0);
+}
+
+/* A search function. Return a single entry on each call, if nothing found, entry
+   will be empty. @first_call_ptr, 1 means start searching at the start of the database,
+   0 means resumes searching after the last entry it found. When restart another search,
+   with a different catalog entry, must set to 1. */
+cdc_entry search_cdc_entry(const char *cd_catalog_ptr, int *first_call_ptr)
+{
+    static int local_first_call = 1;
+    cdc_entry entry_to_return;
+    datum local_data_datum;
+    static datum local_key_datum;    /* notice this must be static */
+
+    memset(&entry_to_return, '\0', sizeof(entry_to_return));
+
+    if (!cdc_dbm_ptr || !cdt_dbm_ptr) {
+        return(entry_to_return);
+    }
+    if (!cd_catalog_ptr || !first_call_ptr) {
+        return(entry_to_return);
+    }
+    if (strlen(cd_catalog_ptr) >= CAT_CAT_LEN) {
+        return(entry_to_return);
+    }
+
+    /* protect against never passing *first_call_ptr true */
+    if (local_first_call) {
+        local_first_call = 0;
+        *first_call_ptr = 1;
+    }
+
+    /* If this function has been called with *first_call_ptr set to true, need to
+       restart searching from the beginning of the database. If *first_call_ptr
+       isn't true, then simply move on to the next key in the database. */
+    if (*first_call_ptr) {
+        *first_call_ptr = 0;
+        local_key_datum = dbm_firstkey(cdc_dbm_ptr);
+    } else {
+        local_key_datum = dbm_nextkey(cdc_dbm_ptr);
+    }
+
+    do {
+        if (local_key_datum.ptr != NULL) {
+            /* an entry was found  */
+            local_data_datum = dbm_fetch(cdc_dbm_ptr, local_key_datum);
+            if (local_data_datum.dptr) {
+                memcpy(&entry_to_return, (char *)local_data_datum.dptr,
+                       local_data_datum.dsize);
+                /* check if search string occurs in the entry */
+                if (!strstr(entry_to_return.catalog, cd_catalog_ptr)) {
+                    memset(&entry_to_return, '\0', sizeof(entry_to_return));
+                    local_key_datum = dbm_nextkey(cdc_dbm_ptr);
+                }
+            }
+        }
+    } while (local_key_datum.dptr && local_data_datum.dptr &&
+             (entry_to_return.catalog[0] == '\0'));
+
+    return(entry_to_return);
+}
