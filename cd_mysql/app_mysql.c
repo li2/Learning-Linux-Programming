@@ -18,7 +18,7 @@ int database_start(char *name, char *pwd)
 
     mysql_init(&my_connection);
     if (!mysql_real_connect(&my_connection, "localhost", name, pwd, "blpcd", 0,
-                            NUll, 0)) {
+                            NULL, 0)) {
         fprintf(stderr, "Database connection failure: %d, %s\n",
                 mysql_errno(&my_connection), mysql_error&my_connection));
         return(0);

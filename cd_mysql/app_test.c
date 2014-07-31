@@ -39,7 +39,7 @@ int main()
     printf("Title: %s\n", cd.title);
     i = 0;
     while (i < res) {
-        printf("\ttrack %d is %s\n", i, ct,track[i]);
+        printf("\ttrack %d is %s\n", i, ct.track[i]);
         i++;
     }
 
