@@ -20,7 +20,7 @@ int database_start(char *name, char *pwd)
     if (!mysql_real_connect(&my_connection, "localhost", name, pwd, "blpcd", 0,
                             NULL, 0)) {
         fprintf(stderr, "Database connection failure: %d, %s\n",
-                mysql_errno(&my_connection), mysql_error&my_connection));
+                mysql_errno(&my_connection), mysql_error(&my_connection));
         return(0);
     }
     dbconnected = 1;
@@ -263,7 +263,7 @@ int get_cd_tracks(int cd_id, struct current_tracks_st *dest)
 
 /* Search for CDs. Kept the interface simple by limiting the number of results
    that could be returned. */
-int find_cds(char *search_str, struct cd_search_st *results)
+int find_cds(char *search_str, struct cd_search_st *dest)
 {
     MYSQL_RES *res_ptr;
     MYSQL_ROW mysqlrow;
@@ -281,7 +281,7 @@ int find_cds(char *search_str, struct cd_search_st *results)
     mysql_escape_string(ss, search_str, strlen(search_str));
 
     /* % is the character you need to insert in the SQL to match any string. */
-    sprintf(ss, "SELECT DISTINCT artist.id, cd.id FROM artist, cd WHERE \ 
+    sprintf(qs, "SELECT DISTINCT artist.id, cd.id FROM artist, cd WHERE \ 
             artist.id = cd.artist_id and ( \ 
             artist.name LIKE '%%%s%%' OR \ 
             cd.title LIKE '%%%s%%' OR \ 
